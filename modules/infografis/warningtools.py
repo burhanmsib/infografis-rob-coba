@@ -36,9 +36,7 @@ GDB_KECAMATAN = BASE_DIR / "data/spatial/batas_kecamatan.gdb"
 # ============================================================
 
 def create_map_annotations(ax, gdf):
-    """
-    Titik lokasi + label merah + leader line (BMKG style)
-    """
+    """Titik lokasi + label merah + leader line (BMKG style)"""
     offsets = [
         (1.6, 0.9),
         (-1.6, 0.9),
@@ -47,6 +45,9 @@ def create_map_annotations(ax, gdf):
     ]
 
     for i, (_, row) in enumerate(gdf.iterrows()):
+        if row.geometry is None:
+            continue
+
         centroid = row.geometry.centroid
         x, y = centroid.x, centroid.y
 
@@ -76,7 +77,7 @@ def create_map_annotations(ax, gdf):
         ax.text(
             lx,
             ly,
-            row["NAMOBJ"],
+            str(row.get("NAMOBJ", "")),
             fontsize=12,
             fontweight="bold",
             color="white",
@@ -123,6 +124,14 @@ def plot_rob_affected_areas(
     tanggal_rekap=None,
     rekap_bul=False,
 ):
+    """
+    Generate infografis rob.
+    Return: PIL.Image
+    """
+
+    if not affected_areas:
+        raise ValueError("affected_areas kosong")
+
     # ========================================================
     # LOAD SPATIAL DATA
     # ========================================================
@@ -153,7 +162,6 @@ def plot_rob_affected_areas(
 
     ax.set_facecolor("none")
 
-    # Base map
     gdf.plot(
         ax=ax,
         facecolor="#E5E5E5",
@@ -162,7 +170,6 @@ def plot_rob_affected_areas(
         zorder=1
     )
 
-    # Wilayah terdampak
     wilayah.plot(
         ax=ax,
         facecolor="#FFB703",
@@ -188,13 +195,14 @@ def plot_rob_affected_areas(
         bbox_inches="tight",
         transparent=True
     )
-    plt.close(fig)
+
+    plt.close(fig)  # ⛔ WAJIB (anti memory leak)
     buf.seek(0)
 
     map_img = Image.open(buf).convert("RGBA")
 
     # ========================================================
-    # RESIZE MAP
+    # RESIZE MAP (PROPORSIONAL)
     # ========================================================
     scale = bg_w / map_img.size[0]
     new_w = int(map_img.size[0] * scale)
