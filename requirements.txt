@@ -18,3 +18,4 @@ geopandas
 shapely
 fiona
 pyproj
+matplotlib==3.8.4
