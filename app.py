@@ -18,7 +18,7 @@ from pdf import generate_event_pdf, generate_multiple_events_pdf
 from modules.infografis.service import generate_infografis_rob
 
 
-# ======================== KONFIGURASI AWAL ========================
+# ======================== KONFIGURASI ========================
 st.set_page_config(
     page_title="Peta Interaktif Banjir Rob BMKG",
     layout="wide"
@@ -42,187 +42,150 @@ role = st.session_state.role
 st.sidebar.markdown(f"👤 Login sebagai: **{role.upper()}**")
 logout()
 
-# ======================== LOAD DATA WILAYAH ========================
+# ======================== DATA WILAYAH ========================
 wil_df = load_wilayah_csv()
 
 # ======================== SIDEBAR ========================
 menu_list = ["Dashboard"]
 if role == "fod":
-    menu_list.extend(["Tambah Data", "Kelola Data", "Infografis Rob"])
+    menu_list += ["Tambah Data", "Kelola Data", "Infografis Rob"]
 
-menu = st.sidebar.radio("Menu", menu_list)
+menu = st.sidebar.radio("Menu", menu_list, key="menu_main")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Filter Dashboard")
 
-start_date = st.sidebar.date_input("Tanggal Awal", value=None)
-end_date = st.sidebar.date_input("Tanggal Akhir", value=None)
+start_date = st.sidebar.date_input("Tanggal Awal", None, key="sb_start")
+end_date = st.sidebar.date_input("Tanggal Akhir", None, key="sb_end")
 
-provinsi_filter = st.sidebar.selectbox(
+prov_filter = st.sidebar.selectbox(
     "Provinsi",
-    [""] + get_provinsi(wil_df)
+    [""] + get_provinsi(wil_df),
+    key="sb_prov"
 )
 
-kabupaten_filter = st.sidebar.selectbox(
+kab_filter = st.sidebar.selectbox(
     "Kabupaten",
-    [""] if not provinsi_filter else get_kabupaten(wil_df, provinsi_filter)
+    [""] if not prov_filter else get_kabupaten(wil_df, prov_filter),
+    key="sb_kab"
 )
 
 # ======================== HELPER ========================
-def load_for_dashboard():
+def load_dashboard_data():
     return crud.fetch_filtered_data(
         start_date=to_db_date_str(start_date) if start_date else None,
         end_date=to_db_date_str(end_date) if end_date else None,
-        provinsi=provinsi_filter or None,
-        kabupaten=kabupaten_filter or None
+        provinsi=prov_filter or None,
+        kabupaten=kab_filter or None
     )
 
-def display_waktu(val):
+def fmt_waktu(val):
     return "-" if not val else str(val)
 
-# ======================== DASHBOARD ========================
+# ======================================================
+# ======================== DASHBOARD ===================
+# ======================================================
 if menu == "Dashboard":
 
     st.subheader("📍 Peta Kejadian Banjir Rob")
-    data = load_for_dashboard()
 
+    data = load_dashboard_data()
     if not data:
         st.info("Belum ada data.")
     else:
-        create_map(data, provinsi_filter, kabupaten_filter)
+        create_map(data, prov_filter, kab_filter)
 
         df = pd.DataFrame(data)
         st.dataframe(df, use_container_width=True)
 
         st.download_button(
             "📥 Download CSV",
-            df.to_csv(index=False).encode("utf-8"),
+            df.to_csv(index=False).encode(),
             "data_banjir_rob.csv",
-            "text/csv"
+            "text/csv",
+            key="csv_dash"
         )
 
-        # ===== SOROTAN TERBARU =====
         st.subheader("📰 Sorotan Terbaru")
-        latest = df.sort_values("Tanggal", ascending=False).head(3)
-
-        for _, row in latest.iterrows():
+        for _, row in df.sort_values("Tanggal", ascending=False).head(3).iterrows():
             c1, c2 = st.columns([2, 1])
-
             with c1:
                 st.markdown(
                     f"""
                     **{row['Lokasi']}**  
                     🏙 {row['Kabupaten']}, {row['Provinsi']}  
-                    📅 {row['Tanggal']} ⏰ {display_waktu(row.get("Waktu"))}
+                    📅 {row['Tanggal']} ⏰ {fmt_waktu(row.get("Waktu"))}
                     """
                 )
 
-                pdf_buffer = generate_event_pdf(row.to_dict())
                 st.download_button(
                     "📄 Download PDF",
-                    pdf_buffer,
-                    f"laporan_{row['Tanggal']}_{row['Lokasi']}.pdf",
+                    generate_event_pdf(row.to_dict()),
+                    f"laporan_{row['No']}.pdf",
                     "application/pdf",
-                    key=f"pdf_latest_{row['No']}"
+                    key=f"pdf_dash_{row['No']}"
                 )
 
             with c2:
-                img_url = row.get("Gambar", "")
-                if img_url:
+                if row.get("Gambar"):
                     try:
-                        r = requests.get(img_url, timeout=8)
+                        r = requests.get(row["Gambar"], timeout=6)
                         if r.status_code == 200:
-                            st.image(img_url, use_container_width=True)
-                    except Exception:
-                        st.caption("⚠️ Gagal memuat gambar")
+                            st.image(row["Gambar"])
+                    except:
+                        pass
 
-        # ===== PDF BERDASARKAN TANGGAL =====
-        st.subheader("📅 Download Laporan Berdasarkan Tanggal")
-        tanggal_pilih = st.date_input("Pilih Tanggal Kejadian")
-
-        if tanggal_pilih:
-            df["Tanggal_norm"] = pd.to_datetime(df["Tanggal"], errors="coerce").dt.date
-            tgl = pd.to_datetime(tanggal_pilih).date()
-            df_filtered = df[df["Tanggal_norm"] == tgl]
-
-            if df_filtered.empty:
-                st.warning("⚠️ Tidak ada data pada tanggal tersebut")
-            else:
-                lokasi_opsi = df_filtered["Lokasi"].unique().tolist()
-                lokasi_pilih = st.selectbox("Pilih Lokasi", lokasi_opsi)
-
-                rec = df_filtered[df_filtered["Lokasi"] == lokasi_pilih].iloc[0]
-
-                st.download_button(
-                    "📄 Download PDF (1 Kejadian)",
-                    generate_event_pdf(rec.to_dict()),
-                    f"laporan_{rec['Tanggal']}_{rec['Lokasi']}.pdf",
-                    "application/pdf"
-                )
-
-                st.download_button(
-                    "📄 Download PDF Semua Kejadian",
-                    generate_multiple_events_pdf(
-                        df_filtered.to_dict(orient="records"),
-                        tgl
-                    ),
-                    f"laporan_semua_{tgl}.pdf",
-                    "application/pdf"
-                )
-
-# ======================== TAMBAH DATA ========================
+# ======================================================
+# ======================== TAMBAH DATA =================
+# ======================================================
 elif menu == "Tambah Data":
-
-    if role != "fod":
-        st.warning("⚠️ Menu ini hanya untuk FOD.")
-        st.stop()
 
     st.subheader("➕ Tambah Data Banjir Rob")
 
-    provinsi = st.selectbox("Provinsi", [""] + get_provinsi(wil_df))
-    kabupaten = st.selectbox(
+    prov = st.selectbox("Provinsi", [""] + get_provinsi(wil_df), key="add_prov")
+    kab = st.selectbox(
         "Kabupaten",
-        [""] if not provinsi else get_kabupaten(wil_df, provinsi)
+        [""] if not prov else get_kabupaten(wil_df, prov),
+        key="add_kab"
     )
-    kecamatan = st.selectbox(
+    kec = st.selectbox(
         "Kecamatan",
-        [""] if not kabupaten else get_kecamatan(wil_df, provinsi, kabupaten)
+        [""] if not kab else get_kecamatan(wil_df, prov, kab),
+        key="add_kec"
     )
 
-    with st.form("form_tambah"):
-        tanggal = st.date_input("Tanggal Kejadian")
-        waktu = st.text_input("Waktu Kejadian")
-        lokasi = st.text_input("Lokasi")
-        latitude = st.text_input("Latitude")
-        longitude = st.text_input("Longitude")
-        ketinggian = st.text_input("Ketinggian (cm)")
-        dampak = st.text_area("Dampak Kejadian")
-        sumber = st.text_input("Sumber Informasi")
-        gambar = st.text_input("Link Gambar")
+    with st.form("form_add"):
+        tgl = st.date_input("Tanggal Kejadian", key="add_tgl")
+        waktu = st.text_input("Waktu Kejadian", key="add_wkt")
+        lokasi = st.text_input("Lokasi", key="add_lok")
+        lat = st.text_input("Latitude", key="add_lat")
+        lon = st.text_input("Longitude", key="add_lon")
+        tinggi = st.text_input("Ketinggian (cm)", key="add_tinggi")
+        dampak = st.text_area("Dampak", key="add_dampak")
+        sumber = st.text_input("Sumber", key="add_sumber")
+        gambar = st.text_input("Link Gambar", key="add_gambar")
 
-        if st.form_submit_button("💾 Simpan Data"):
+        if st.form_submit_button("💾 Simpan"):
             crud.insert_data(
-                tanggal=to_db_date_str(tanggal),
-                waktu=waktu.strip() if waktu else None,
+                tanggal=to_db_date_str(tgl),
+                waktu=waktu,
                 lokasi=lokasi,
-                kecamatan=kecamatan,
-                kabupaten=kabupaten,
-                provinsi=provinsi,
-                latitude=safe_float(latitude),
-                longitude=safe_float(longitude),
-                ketinggian=ketinggian,
+                kecamatan=kec,
+                kabupaten=kab,
+                provinsi=prov,
+                latitude=safe_float(lat),
+                longitude=safe_float(lon),
+                ketinggian=tinggi,
                 dampak=dampak,
                 sumber=sumber,
                 gambar=gambar
             )
             st.success("✅ Data berhasil ditambahkan")
 
-# ======================== KELOLA DATA ========================
+# ======================================================
+# ======================== KELOLA DATA =================
+# ======================================================
 elif menu == "Kelola Data":
-
-    if role != "fod":
-        st.warning("⚠️ Menu ini hanya untuk FOD.")
-        st.stop()
 
     st.subheader("🛠 Kelola Data Banjir Rob")
 
@@ -234,128 +197,118 @@ elif menu == "Kelola Data":
     df = pd.DataFrame(data)
     st.dataframe(df, use_container_width=True)
 
-    selected_id = st.selectbox("Pilih No Data", df["No"].tolist())
-    rec = df[df["No"] == selected_id].iloc[0]
-
-    st.markdown("### 📍 Wilayah Kejadian")
+    no = st.selectbox("Pilih No Data", df["No"], key="edit_no")
+    rec = df[df["No"] == no].iloc[0]
 
     prov_u = st.selectbox(
         "Provinsi",
         [""] + get_provinsi(wil_df),
-        index=get_provinsi(wil_df).index(rec["Provinsi"]) + 1
-        if rec["Provinsi"] in get_provinsi(wil_df) else 0
+        index=get_provinsi(wil_df).index(rec["Provinsi"]) + 1,
+        key="edit_prov"
     )
 
     kab_u = st.selectbox(
         "Kabupaten",
-        [""] if not prov_u else get_kabupaten(wil_df, prov_u),
-        index=get_kabupaten(wil_df, prov_u).index(rec["Kabupaten"])
-        if prov_u and rec["Kabupaten"] in get_kabupaten(wil_df, prov_u) else 0
+        get_kabupaten(wil_df, prov_u),
+        index=get_kabupaten(wil_df, prov_u).index(rec["Kabupaten"]),
+        key="edit_kab"
     )
 
     kec_u = st.selectbox(
         "Kecamatan",
-        [""] if not kab_u else get_kecamatan(wil_df, prov_u, kab_u),
-        index=get_kecamatan(wil_df, prov_u, kab_u).index(rec["Kecamatan"])
-        if kab_u and rec["Kecamatan"] in get_kecamatan(wil_df, prov_u, kab_u) else 0
+        get_kecamatan(wil_df, prov_u, kab_u),
+        index=get_kecamatan(wil_df, prov_u, kab_u).index(rec["Kecamatan"]),
+        key="edit_kec"
     )
 
-    with st.form("form_update"):
-        tanggal_u = st.date_input("Tanggal Kejadian", parse_date_safe(rec["Tanggal"]))
-        waktu_u = st.text_input("Waktu Kejadian", rec.get("Waktu", ""))
-        lokasi_u = st.text_input("Lokasi", rec["Lokasi"])
-        latitude_u = st.text_input("Latitude", rec["Latitude"])
-        longitude_u = st.text_input("Longitude", rec["Longitude"])
-        ketinggian_u = st.text_input("Ketinggian (cm)", rec.get("Ketinggian", ""))
-        dampak_u = st.text_area("Dampak Kejadian", rec.get("Dampak", ""))
-        sumber_u = st.text_input("Sumber Informasi", rec.get("Sumber", ""))
-        gambar_u = st.text_input("Link Gambar", rec.get("Gambar", ""))
+    with st.form("form_edit"):
+        tgl_u = st.date_input("Tanggal", parse_date_safe(rec["Tanggal"]), key="edit_tgl")
+        waktu_u = st.text_input("Waktu", rec.get("Waktu", ""), key="edit_wkt")
+        lokasi_u = st.text_input("Lokasi", rec["Lokasi"], key="edit_lok")
+        lat_u = st.text_input("Latitude", rec["Latitude"], key="edit_lat")
+        lon_u = st.text_input("Longitude", rec["Longitude"], key="edit_lon")
+        tinggi_u = st.text_input("Ketinggian", rec.get("Ketinggian", ""), key="edit_tinggi")
+        dampak_u = st.text_area("Dampak", rec.get("Dampak", ""), key="edit_dampak")
+        sumber_u = st.text_input("Sumber", rec.get("Sumber", ""), key="edit_sumber")
+        gambar_u = st.text_input("Gambar", rec.get("Gambar", ""), key="edit_gambar")
 
         if st.form_submit_button("💾 Simpan Perubahan"):
             crud.update_data(
-                no_id=selected_id,
-                tanggal=to_db_date_str(tanggal_u),
-                waktu=waktu_u.strip() if waktu_u else None,
+                no_id=no,
+                tanggal=to_db_date_str(tgl_u),
+                waktu=waktu_u,
                 lokasi=lokasi_u,
                 kecamatan=kec_u,
                 kabupaten=kab_u,
                 provinsi=prov_u,
-                latitude=safe_float(latitude_u),
-                longitude=safe_float(longitude_u),
-                ketinggian=ketinggian_u,
+                latitude=safe_float(lat_u),
+                longitude=safe_float(lon_u),
+                ketinggian=tinggi_u,
                 dampak=dampak_u,
                 sumber=sumber_u,
                 gambar=gambar_u
             )
-            st.success("✅ Data berhasil diperbarui")
+            st.success("✅ Data diperbarui")
             st.rerun()
 
-    if st.button("🗑 Hapus Data Ini", type="primary"):
-        crud.delete_data(selected_id)
-        st.success("✅ Data berhasil dihapus")
+    if st.button("🗑 Hapus Data", key="hapus_data"):
+        crud.delete_data(no)
+        st.success("🗑 Data dihapus")
         st.rerun()
 
-# ======================== INFOGRAFIS ROB ========================
+# ======================================================
+# ======================== INFOGRAFIS ==================
+# ======================================================
 elif menu == "Infografis Rob":
-
-    if role != "fod":
-        st.error("⛔ Menu ini hanya untuk FOD")
-        st.stop()
 
     st.subheader("🖼️ Infografis Sebaran Wilayah Terdampak Rob")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        tanggal_awal = st.date_input("Tanggal Awal Infografis")
-    with col2:
-        tanggal_akhir = st.date_input("Tanggal Akhir Infografis")
+    tgl_awal = st.date_input("Tanggal Awal", key="info_awal")
+    tgl_akhir = st.date_input("Tanggal Akhir", key="info_akhir")
 
-    mode_infografis = st.radio(
-        "Jenis Infografis",
+    mode = st.radio(
+        "Jenis",
         ["Harian", "Rekap Bulanan"],
-        horizontal=True
+        horizontal=True,
+        key="info_mode"
     )
 
-    tanggal_rekap = st.text_input(
+    teks = st.text_input(
         "Teks Periode",
-        value=datetime.now().strftime("%d %B %Y")
+        datetime.now().strftime("%d %B %Y"),
+        key="info_teks"
     )
 
-    if st.button("📊 Proses & Generate Infografis"):
+    if st.button("📊 Generate", key="info_gen"):
 
         data = crud.fetch_filtered_data(
-            start_date=to_db_date_str(tanggal_awal),
-            end_date=to_db_date_str(tanggal_akhir)
+            start_date=to_db_date_str(tgl_awal),
+            end_date=to_db_date_str(tgl_akhir)
         )
-
-        if not data:
-            st.warning("⚠️ Tidak ada data")
-            st.stop()
 
         df = pd.DataFrame(data)
-        kecamatan_terdampak = (
-            df["Kecamatan"].dropna().astype(str).unique().tolist()
-        )
+        kec = df["Kecamatan"].dropna().unique().tolist()
 
         hasil = generate_infografis_rob(
-            kecamatan_list=kecamatan_terdampak,
-            tanggal=tanggal_rekap,
-            rekap_bul=(mode_infografis == "Rekap Bulanan")
+            kecamatan_list=kec,
+            tanggal=teks,
+            rekap_bul=(mode == "Rekap Bulanan")
         )
 
         if hasil["success"]:
             img = hasil["image"]
             st.image(img)
-            
+
             buf = io.BytesIO()
             img.save(buf, format="PNG")
             buf.seek(0)
 
             st.download_button(
                 "⬇️ Download Infografis",
-                data=buf,
-                file_name=hasil["file_name"],
-                mime="image/png"
+                buf,
+                hasil["file_name"],
+                "image/png",
+                key="info_dl"
             )
         else:
             st.error(hasil["error"])
