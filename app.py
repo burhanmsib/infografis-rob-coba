@@ -446,35 +446,36 @@ elif menu == "Infografis Rob":
             )
 
         # ========================
-        # OUTPUT
-        # ========================
-        # ========================
         # OUTPUT (AMAN STREAMLIT CLOUD)
         # ========================
         if hasil.get("success"):
             st.success("✅ Infografis berhasil dibuat")
         
-            file_path = Path(hasil.get("file_path", ""))
+            img = hasil.get("image")
+            file_name = hasil.get("file_name", "infografis_rob.png")
         
-            # 1️⃣ TAMPILKAN GAMBAR
-            if file_path.exists():
-                st.image(str(file_path), use_container_width=True)
-            elif "image" in hasil and hasil["image"] is not None:
-                st.image(hasil["image"], use_container_width=True)
+            # 1️⃣ TAMPILKAN GAMBAR (PRIORITAS MEMORY)
+            if img is not None:
+                st.image(img, use_container_width=True)
             else:
                 st.warning("⚠️ Gambar berhasil dibuat tetapi tidak dapat ditampilkan")
         
-            # 2️⃣ DOWNLOAD BUTTON
-            if file_path.exists():
-                with open(file_path, "rb") as f:
-                    st.download_button(
-                        "⬇️ Download Infografis",
-                        data=f,
-                        file_name=hasil["file_name"],
-                        mime="image/png"
-                    )
+            # 2️⃣ DOWNLOAD BUTTON (DARI MEMORY)
+            if img is not None:
+                import io
+        
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                buf.seek(0)
+        
+                st.download_button(
+                    "⬇️ Download Infografis",
+                    data=buf,
+                    file_name=file_name,
+                    mime="image/png"
+                )
             else:
-                st.warning("⚠️ File infografis tidak ditemukan untuk diunduh")
+                st.warning("⚠️ File infografis tidak tersedia untuk diunduh")
         
         else:
             st.error("❌ Gagal membuat infografis")
