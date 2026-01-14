@@ -27,10 +27,21 @@ def generate_infografis_rob(
     **kwargs
 ):
     """
-    Generate infografis rob dan mengembalikan metadata hasil.
+    Generate infografis rob.
+
+    Return:
+    {
+        success: bool,
+        file_path: str,
+        file_name: str,
+        kategori: str,
+        image: PIL.Image (jika success)
+    }
     """
 
-    # Backward compatibility
+    # ======================================
+    # BACKWARD COMPATIBILITY
+    # ======================================
     if affected_areas is None:
         affected_areas = kwargs.get("kecamatan_list")
 
@@ -40,6 +51,9 @@ def generate_infografis_rob(
             "error": "affected_areas / kecamatan_list tidak boleh kosong"
         }
 
+    # ======================================
+    # OUTPUT CONFIG
+    # ======================================
     now = datetime.now()
 
     if rekap_bul:
@@ -54,10 +68,10 @@ def generate_infografis_rob(
     file_name = f"{prefix}_{now.strftime('%Y%m%d_%H%M%S')}.png"
     save_path = output_dir / file_name
 
+    # ======================================
+    # GENERATE IMAGE
+    # ======================================
     try:
-        # ================================
-        # GENERATE IMAGE
-        # ================================
         final_img = plot_rob_affected_areas(
             affected_areas=affected_areas,
             save_path=save_path,
@@ -66,14 +80,21 @@ def generate_infografis_rob(
         )
 
         if final_img is None:
-            raise RuntimeError("plot_rob_affected_areas tidak mengembalikan image")
+            raise RuntimeError(
+                "plot_rob_affected_areas tidak mengembalikan PIL.Image"
+            )
+
+        if not save_path.exists():
+            raise RuntimeError(
+                "File infografis gagal disimpan ke disk"
+            )
 
         return {
             "success": True,
             "file_path": str(save_path),
             "file_name": file_name,
             "kategori": kategori,
-            "image": final_img  # <- INI PENTING
+            "image": final_img
         }
 
     except Exception as e:
