@@ -345,8 +345,8 @@ elif menu == "Infografis Rob":
 
         if hasil["success"]:
             img = hasil["image"]
-            st.image(img, use_container_width=True)
-
+            st.image(img)
+            
             buf = io.BytesIO()
             img.save(buf, format="PNG")
             buf.seek(0)
