@@ -13,6 +13,7 @@ OUTPUT_BASE = BASE_DIR / "output" / "infografis"
 OUTPUT_SEBARAN = OUTPUT_BASE / "sebaran"
 OUTPUT_REKAP = OUTPUT_BASE / "rekap"
 
+# Aman untuk Streamlit Cloud
 OUTPUT_SEBARAN.mkdir(parents=True, exist_ok=True)
 OUTPUT_REKAP.mkdir(parents=True, exist_ok=True)
 
@@ -32,10 +33,10 @@ def generate_infografis_rob(
     Return:
     {
         success: bool,
-        file_path: str,
+        file_path: str | None,
         file_name: str,
         kategori: str,
-        image: PIL.Image (jika success)
+        image: PIL.Image
     }
     """
 
@@ -69,12 +70,12 @@ def generate_infografis_rob(
     save_path = output_dir / file_name
 
     # ======================================
-    # GENERATE IMAGE
+    # GENERATE IMAGE (ANTI-CRASH)
     # ======================================
     try:
         final_img = plot_rob_affected_areas(
             affected_areas=affected_areas,
-            save_path=save_path,
+            save_path=save_path,        # optional (boleh gagal)
             tanggal_rekap=tanggal,
             rekap_bul=rekap_bul,
         )
@@ -84,17 +85,15 @@ def generate_infografis_rob(
                 "plot_rob_affected_areas tidak mengembalikan PIL.Image"
             )
 
-        if not save_path.exists():
-            raise RuntimeError(
-                "File infografis gagal disimpan ke disk"
-            )
+        # ⚠️ JANGAN MEMAKSA FILE ADA (Streamlit Cloud bisa read-only)
+        file_path = str(save_path) if save_path.exists() else None
 
         return {
             "success": True,
-            "file_path": str(save_path),
+            "file_path": file_path,
             "file_name": file_name,
             "kategori": kategori,
-            "image": final_img
+            "image": final_img  # ✅ sumber utama
         }
 
     except Exception as e:
