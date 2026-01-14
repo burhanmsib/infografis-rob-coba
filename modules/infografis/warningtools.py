@@ -37,6 +37,7 @@ GDB_KECAMATAN = BASE_DIR / "data/spatial/batas_kecamatan.gdb"
 
 def create_map_annotations(ax, gdf):
     """Titik lokasi + label merah + leader line (BMKG style)"""
+
     offsets = [
         (1.6, 0.9),
         (-1.6, 0.9),
@@ -45,10 +46,11 @@ def create_map_annotations(ax, gdf):
     ]
 
     for i, (_, row) in enumerate(gdf.iterrows()):
-        if row.geometry is None:
+        geom = row.geometry
+        if geom is None or geom.is_empty:
             continue
 
-        centroid = row.geometry.centroid
+        centroid = geom.centroid
         x, y = centroid.x, centroid.y
 
         dx, dy = offsets[i % len(offsets)]
@@ -93,6 +95,8 @@ def create_map_annotations(ax, gdf):
 
 
 def create_legend_panel(areas, width, height, font_path):
+    """Panel legenda samping"""
+
     panel = Image.new("RGBA", (width, height), (0, 40, 112, 255))
     draw = ImageDraw.Draw(panel)
 
@@ -135,7 +139,10 @@ def plot_rob_affected_areas(
     # ========================================================
     # LOAD SPATIAL DATA
     # ========================================================
-    gdf = gpd.read_file(GDB_KECAMATAN)
+    try:
+        gdf = gpd.read_file(GDB_KECAMATAN)
+    except Exception as e:
+        raise RuntimeError(f"Gagal membaca data spasial: {e}")
 
     wilayah = gdf[gdf["NAMOBJ"].isin(affected_areas)]
 
@@ -146,6 +153,10 @@ def plot_rob_affected_areas(
     # LOAD BACKGROUND IMAGE
     # ========================================================
     bg_path = BG_BULANAN if rekap_bul else BG_HARIAN
+
+    if not bg_path.exists():
+        raise RuntimeError(f"Background tidak ditemukan: {bg_path}")
+
     bg_img = Image.open(bg_path).convert("RGBA")
     bg_w, bg_h = bg_img.size
 
@@ -181,13 +192,13 @@ def plot_rob_affected_areas(
     )
 
     create_map_annotations(ax, wilayah)
-
     ax.axis("off")
 
     # ========================================================
-    # EXPORT MAP TO IMAGE BUFFER
+    # EXPORT MAP TO BUFFER (ANTI MEMORY LEAK)
     # ========================================================
     buf = io.BytesIO()
+
     plt.savefig(
         buf,
         format="png",
@@ -196,29 +207,29 @@ def plot_rob_affected_areas(
         transparent=True
     )
 
-    plt.close(fig)  # ⛔ WAJIB (anti memory leak)
+    plt.close(fig)  # ⛔ WAJIB
     buf.seek(0)
 
     map_img = Image.open(buf).convert("RGBA")
 
     # ========================================================
-    # RESIZE MAP (PROPORSIONAL)
+    # RESIZE MAP
     # ========================================================
     scale = bg_w / map_img.size[0]
-    new_w = int(map_img.size[0] * scale)
-    new_h = int(map_img.size[1] * scale)
+    new_size = (
+        int(map_img.size[0] * scale),
+        int(map_img.size[1] * scale)
+    )
 
-    map_img = map_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    map_img = map_img.resize(new_size, Image.Resampling.LANCZOS)
 
     # ========================================================
     # COMPOSE FINAL IMAGE
     # ========================================================
     canvas = bg_img.copy()
-
-    MAP_OFFSET_Y = 360
     canvas.paste(
         map_img,
-        ((bg_w - new_w) // 2, MAP_OFFSET_Y),
+        ((bg_w - new_size[0]) // 2, 360),
         map_img
     )
 
@@ -238,10 +249,9 @@ def plot_rob_affected_areas(
     final_img.paste(legend, (bg_w, 0))
 
     draw = ImageDraw.Draw(final_img)
-    x = bg_w
     for y in range(0, bg_h, 28):
         draw.line(
-            [(x, y), (x, y + 14)],
+            [(bg_w, y), (bg_w, y + 14)],
             fill="white",
             width=4
         )
@@ -255,7 +265,14 @@ def plot_rob_affected_areas(
             font=font
         )
 
+    # ========================================================
+    # SAVE FILE (OPTIONAL)
+    # ========================================================
     if save_path:
-        final_img.save(save_path, dpi=(300, 300))
+        try:
+            final_img.save(save_path, dpi=(300, 300))
+        except Exception:
+            # ⚠️ jangan crash jika disk read-only
+            pass
 
     return final_img
