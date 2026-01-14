@@ -447,21 +447,34 @@ elif menu == "Infografis Rob":
         # ========================
         # OUTPUT
         # ========================
+        # ========================
+        # OUTPUT (AMAN STREAMLIT CLOUD)
+        # ========================
         if hasil.get("success"):
             st.success("✅ Infografis berhasil dibuat")
-
-            st.image(
-                hasil["file_path"],
-                use_container_width=True
-            )
-
-            with open(hasil["file_path"], "rb") as f:
-                st.download_button(
-                    "⬇️ Download Infografis",
-                    data=f,
-                    file_name=hasil["file_name"],
-                    mime="image/png"
-                )
+        
+            file_path = Path(hasil.get("file_path", ""))
+        
+            # 1️⃣ TAMPILKAN GAMBAR
+            if file_path.exists():
+                st.image(str(file_path), use_container_width=True)
+            elif "image" in hasil and hasil["image"] is not None:
+                st.image(hasil["image"], use_container_width=True)
+            else:
+                st.warning("⚠️ Gambar berhasil dibuat tetapi tidak dapat ditampilkan")
+        
+            # 2️⃣ DOWNLOAD BUTTON
+            if file_path.exists():
+                with open(file_path, "rb") as f:
+                    st.download_button(
+                        "⬇️ Download Infografis",
+                        data=f,
+                        file_name=hasil["file_name"],
+                        mime="image/png"
+                    )
+            else:
+                st.warning("⚠️ File infografis tidak ditemukan untuk diunduh")
+        
         else:
             st.error("❌ Gagal membuat infografis")
             st.code(hasil.get("error", "Unknown error"))
