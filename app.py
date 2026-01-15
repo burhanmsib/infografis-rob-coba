@@ -82,6 +82,16 @@ def load_dashboard_data():
 def fmt_waktu(val):
     return "-" if not val else str(val)
 
+# ======================== NOTIFIKASI ========================
+if "notif" in st.session_state:
+    if st.session_state["notif"] == "tambah":
+        st.success("✅ Data berhasil ditambahkan")
+    elif st.session_state["notif"] == "update":
+        st.success("✅ Data berhasil diperbarui")
+    elif st.session_state["notif"] == "hapus":
+        st.success("🗑️ Data berhasil dihapus")
+    del st.session_state["notif"]
+
 # ======================================================
 # ======================== DASHBOARD ===================
 # ======================================================
@@ -106,6 +116,7 @@ if menu == "Dashboard":
             key="csv_dash"
         )
 
+        # ===== SOROTAN TERBARU =====
         st.subheader("📰 Sorotan Terbaru")
         for _, row in df.sort_values("Tanggal", ascending=False).head(3).iterrows():
             c1, c2 = st.columns([2, 1])
@@ -133,7 +144,53 @@ if menu == "Dashboard":
                         if r.status_code == 200:
                             st.image(row["Gambar"])
                     except:
-                        pass
+                        st.caption("⚠️ Gagal memuat gambar")
+
+        # ===== PDF PER KEJADIAN =====
+        st.subheader("📄 Download Laporan PDF Per Kejadian")
+
+        tanggal_pilih = st.date_input(
+            "Pilih Tanggal Kejadian",
+            key="dash_tanggal_pdf"
+        )
+
+        if tanggal_pilih:
+            df["Tanggal_norm"] = pd.to_datetime(
+                df["Tanggal"], errors="coerce"
+            ).dt.date
+
+            tgl = pd.to_datetime(tanggal_pilih).date()
+            df_tgl = df[df["Tanggal_norm"] == tgl]
+
+            if df_tgl.empty:
+                st.warning("⚠️ Tidak ada kejadian pada tanggal tersebut")
+            else:
+                lokasi_pilih = st.selectbox(
+                    "Pilih Lokasi Kejadian",
+                    df_tgl["Lokasi"].unique().tolist(),
+                    key="dash_lokasi_pdf"
+                )
+
+                rec = df_tgl[df_tgl["Lokasi"] == lokasi_pilih].iloc[0]
+
+                st.download_button(
+                    "📄 Download PDF Kejadian",
+                    generate_event_pdf(rec.to_dict()),
+                    f"laporan_{rec['Tanggal']}_{rec['Lokasi']}.pdf",
+                    "application/pdf",
+                    key="dash_pdf_single"
+                )
+
+                st.download_button(
+                    "📄 Download PDF Semua Kejadian (Tanggal Ini)",
+                    generate_multiple_events_pdf(
+                        df_tgl.to_dict(orient="records"),
+                        tgl
+                    ),
+                    f"laporan_semua_{tgl}.pdf",
+                    "application/pdf",
+                    key="dash_pdf_all"
+                )
 
 # ======================================================
 # ======================== TAMBAH DATA =================
@@ -155,15 +212,15 @@ elif menu == "Tambah Data":
     )
 
     with st.form("form_add"):
-        tgl = st.date_input("Tanggal Kejadian", key="add_tgl")
-        waktu = st.text_input("Waktu Kejadian", key="add_wkt")
-        lokasi = st.text_input("Lokasi", key="add_lok")
-        lat = st.text_input("Latitude", key="add_lat")
-        lon = st.text_input("Longitude", key="add_lon")
-        tinggi = st.text_input("Ketinggian (cm)", key="add_tinggi")
-        dampak = st.text_area("Dampak", key="add_dampak")
-        sumber = st.text_input("Sumber", key="add_sumber")
-        gambar = st.text_input("Link Gambar", key="add_gambar")
+        tgl = st.date_input("Tanggal Kejadian")
+        waktu = st.text_input("Waktu Kejadian")
+        lokasi = st.text_input("Lokasi")
+        lat = st.text_input("Latitude")
+        lon = st.text_input("Longitude")
+        tinggi = st.text_input("Ketinggian (cm)")
+        dampak = st.text_area("Dampak")
+        sumber = st.text_input("Sumber")
+        gambar = st.text_input("Link Gambar")
 
         if st.form_submit_button("💾 Simpan"):
             crud.insert_data(
@@ -180,7 +237,8 @@ elif menu == "Tambah Data":
                 sumber=sumber,
                 gambar=gambar
             )
-            st.success("✅ Data berhasil ditambahkan")
+            st.session_state["notif"] = "tambah"
+            st.rerun()
 
 # ======================================================
 # ======================== KELOLA DATA =================
@@ -222,15 +280,15 @@ elif menu == "Kelola Data":
     )
 
     with st.form("form_edit"):
-        tgl_u = st.date_input("Tanggal", parse_date_safe(rec["Tanggal"]), key="edit_tgl")
-        waktu_u = st.text_input("Waktu", rec.get("Waktu", ""), key="edit_wkt")
-        lokasi_u = st.text_input("Lokasi", rec["Lokasi"], key="edit_lok")
-        lat_u = st.text_input("Latitude", rec["Latitude"], key="edit_lat")
-        lon_u = st.text_input("Longitude", rec["Longitude"], key="edit_lon")
-        tinggi_u = st.text_input("Ketinggian", rec.get("Ketinggian", ""), key="edit_tinggi")
-        dampak_u = st.text_area("Dampak", rec.get("Dampak", ""), key="edit_dampak")
-        sumber_u = st.text_input("Sumber", rec.get("Sumber", ""), key="edit_sumber")
-        gambar_u = st.text_input("Gambar", rec.get("Gambar", ""), key="edit_gambar")
+        tgl_u = st.date_input("Tanggal", parse_date_safe(rec["Tanggal"]))
+        waktu_u = st.text_input("Waktu", rec.get("Waktu", ""))
+        lokasi_u = st.text_input("Lokasi", rec["Lokasi"])
+        lat_u = st.text_input("Latitude", rec["Latitude"])
+        lon_u = st.text_input("Longitude", rec["Longitude"])
+        tinggi_u = st.text_input("Ketinggian", rec.get("Ketinggian", ""))
+        dampak_u = st.text_area("Dampak", rec.get("Dampak", ""))
+        sumber_u = st.text_input("Sumber", rec.get("Sumber", ""))
+        gambar_u = st.text_input("Gambar", rec.get("Gambar", ""))
 
         if st.form_submit_button("💾 Simpan Perubahan"):
             crud.update_data(
@@ -248,12 +306,12 @@ elif menu == "Kelola Data":
                 sumber=sumber_u,
                 gambar=gambar_u
             )
-            st.success("✅ Data diperbarui")
+            st.session_state["notif"] = "update"
             st.rerun()
 
-    if st.button("🗑 Hapus Data", key="hapus_data"):
+    if st.button("🗑 Hapus Data"):
         crud.delete_data(no)
-        st.success("🗑 Data dihapus")
+        st.session_state["notif"] = "hapus"
         st.rerun()
 
 # ======================================================
@@ -263,23 +321,21 @@ elif menu == "Infografis Rob":
 
     st.subheader("🖼️ Infografis Sebaran Wilayah Terdampak Rob")
 
-    tgl_awal = st.date_input("Tanggal Awal", key="info_awal")
-    tgl_akhir = st.date_input("Tanggal Akhir", key="info_akhir")
+    tgl_awal = st.date_input("Tanggal Awal")
+    tgl_akhir = st.date_input("Tanggal Akhir")
 
     mode = st.radio(
         "Jenis",
         ["Harian", "Rekap Bulanan"],
-        horizontal=True,
-        key="info_mode"
+        horizontal=True
     )
 
     teks = st.text_input(
         "Teks Periode",
-        datetime.now().strftime("%d %B %Y"),
-        key="info_teks"
+        datetime.now().strftime("%d %B %Y")
     )
 
-    if st.button("📊 Generate", key="info_gen"):
+    if st.button("📊 Generate"):
 
         data = crud.fetch_filtered_data(
             start_date=to_db_date_str(tgl_awal),
@@ -307,8 +363,7 @@ elif menu == "Infografis Rob":
                 "⬇️ Download Infografis",
                 buf,
                 hasil["file_name"],
-                "image/png",
-                key="info_dl"
+                "image/png"
             )
         else:
             st.error(hasil["error"])
