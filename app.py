@@ -258,27 +258,68 @@ elif menu == "Kelola Data":
     no = st.selectbox("Pilih No Data", df["No"], key="edit_no")
     rec = df[df["No"] == no].iloc[0]
 
+    # ================== PROVINSI (AMAN) ==================
+    prov_list = [""] + get_provinsi(wil_df)
+
+    prov_index = (
+        prov_list.index(rec["Provinsi"])
+        if rec.get("Provinsi") in prov_list
+        else 0
+    )
+
     prov_u = st.selectbox(
         "Provinsi",
-        [""] + get_provinsi(wil_df),
-        index=get_provinsi(wil_df).index(rec["Provinsi"]) + 1,
+        prov_list,
+        index=prov_index,
         key="edit_prov"
+    )
+
+    if rec.get("Provinsi") not in prov_list and rec.get("Provinsi"):
+        st.warning("⚠️ Provinsi pada data lama tidak ditemukan di master wilayah")
+
+    # ================== KABUPATEN (AMAN) ==================
+    kab_list = (
+        [""] if not prov_u else get_kabupaten(wil_df, prov_u)
+    )
+
+    kab_index = (
+        kab_list.index(rec["Kabupaten"])
+        if rec.get("Kabupaten") in kab_list
+        else 0
     )
 
     kab_u = st.selectbox(
         "Kabupaten",
-        get_kabupaten(wil_df, prov_u),
-        index=get_kabupaten(wil_df, prov_u).index(rec["Kabupaten"]),
+        kab_list,
+        index=kab_index,
         key="edit_kab"
+    )
+
+    if prov_u and rec.get("Kabupaten") not in kab_list and rec.get("Kabupaten"):
+        st.warning("⚠️ Kabupaten pada data lama tidak ditemukan")
+
+    # ================== KECAMATAN (AMAN) ==================
+    kec_list = (
+        [""] if not kab_u else get_kecamatan(wil_df, prov_u, kab_u)
+    )
+
+    kec_index = (
+        kec_list.index(rec["Kecamatan"])
+        if rec.get("Kecamatan") in kec_list
+        else 0
     )
 
     kec_u = st.selectbox(
         "Kecamatan",
-        get_kecamatan(wil_df, prov_u, kab_u),
-        index=get_kecamatan(wil_df, prov_u, kab_u).index(rec["Kecamatan"]),
+        kec_list,
+        index=kec_index,
         key="edit_kec"
     )
 
+    if kab_u and rec.get("Kecamatan") not in kec_list and rec.get("Kecamatan"):
+        st.warning("⚠️ Kecamatan pada data lama tidak ditemukan")
+
+    # ================== FORM EDIT ==================
     with st.form("form_edit"):
         tgl_u = st.date_input("Tanggal", parse_date_safe(rec["Tanggal"]))
         waktu_u = st.text_input("Waktu", rec.get("Waktu", ""))
@@ -313,6 +354,7 @@ elif menu == "Kelola Data":
         crud.delete_data(no)
         st.session_state["notif"] = "hapus"
         st.rerun()
+
 
 # ======================================================
 # ======================== INFOGRAFIS ==================
