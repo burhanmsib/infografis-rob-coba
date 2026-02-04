@@ -28,20 +28,16 @@ st.markdown(
     """
     <style>
     /* ===============================
-       HIDE FOOTER ONLY
+       HIDE GITHUB / FORK BADGE
        =============================== */
 
-    /* Footer "Made with Streamlit" */
-    footer {
+    /* GitHub fork badge (top-right) */
+    a[href*="github.com"] {
         display: none !important;
     }
 
-    /* Bottom-right avatar / badge */
-    div[data-testid="stDecoration"] {
-        display: none !important;
-    }
-
-    div[data-testid="stStatusWidget"] {
+    /* Streamlit cloud deploy button */
+    div[data-testid="stToolbar"] a {
         display: none !important;
     }
     </style>
@@ -49,7 +45,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown("&nbsp;", unsafe_allow_html=True)
+st.write("")  # paksa render ulang
 
 st.markdown(
     "<h1 style='text-align:center;'>PETA INTERAKTIF BANJIR ROB BMKG</h1>",
