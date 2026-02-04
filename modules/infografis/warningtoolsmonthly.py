@@ -32,7 +32,7 @@ else:
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 # ⚠️ Pastikan file ini BENAR-BENAR ADA di repo
-GDB_KECAMATAN = BASE_DIR / "data" / "spatial" / "batskec_new.gdb"
+GDB_KECAMATAN = BASE_DIR / "data" / "spatial" / "batas_kecamatan.gdb"
 BG_BULANAN = BASE_DIR / "assets" / "background" / "bg_img_rekapbul.png"
 
 # ============================================================
@@ -233,4 +233,5 @@ def plot_rob_affected_areas(
         final_img.save(save_path, dpi=(300, 300))
 
     return final_img
+
 
