@@ -1,7 +1,13 @@
 from pathlib import Path
 from datetime import datetime
 
-from .warningtools import plot_rob_affected_areas
+# ================= IMPORT ENGINE =================
+# Harian
+from .warningtools import plot_rob_affected_areas as plot_rob_harian
+
+# Bulanan
+from .warningtoolsmonthly import plot_rob_affected_areas as plot_rob_bulanan
+
 
 # ============================================================
 # PATH CONFIGURATION
@@ -17,6 +23,7 @@ OUTPUT_REKAP = OUTPUT_BASE / "rekap"
 OUTPUT_SEBARAN.mkdir(parents=True, exist_ok=True)
 OUTPUT_REKAP.mkdir(parents=True, exist_ok=True)
 
+
 # ============================================================
 # MAIN SERVICE
 # ============================================================
@@ -28,7 +35,7 @@ def generate_infografis_rob(
     **kwargs
 ):
     """
-    Generate infografis rob.
+    Generate infografis rob (harian / bulanan).
 
     Return:
     {
@@ -40,9 +47,9 @@ def generate_infografis_rob(
     }
     """
 
-    # ======================================
+    # ========================================================
     # BACKWARD COMPATIBILITY
-    # ======================================
+    # ========================================================
     if affected_areas is None:
         affected_areas = kwargs.get("kecamatan_list")
 
@@ -52,9 +59,9 @@ def generate_infografis_rob(
             "error": "affected_areas / kecamatan_list tidak boleh kosong"
         }
 
-    # ======================================
+    # ========================================================
     # OUTPUT CONFIG
-    # ======================================
+    # ========================================================
     now = datetime.now()
 
     if rekap_bul:
@@ -69,23 +76,34 @@ def generate_infografis_rob(
     file_name = f"{prefix}_{now.strftime('%Y%m%d_%H%M%S')}.png"
     save_path = output_dir / file_name
 
-    # ======================================
-    # GENERATE IMAGE (ANTI-CRASH)
-    # ======================================
+    # ========================================================
+    # GENERATE IMAGE (ENGINE DIPISAH)
+    # ========================================================
     try:
-        final_img = plot_rob_affected_areas(
-            affected_areas=affected_areas,
-            save_path=save_path,        # optional (boleh gagal)
-            tanggal_rekap=tanggal,
-            rekap_bul=rekap_bul,
-        )
+        # ================= BULANAN =================
+        if rekap_bul:
+            final_img = plot_rob_bulanan(
+                affected_areas_list=affected_areas,
+                save_path=save_path,
+                tanggal_rekap=tanggal,
+                rekap_bul=True
+            )
+
+        # ================= HARIAN ==================
+        else:
+            final_img = plot_rob_harian(
+                affected_areas=affected_areas,
+                save_path=save_path,
+                tanggal_rekap=tanggal,
+                rekap_bul=False
+            )
 
         if final_img is None:
             raise RuntimeError(
-                "plot_rob_affected_areas tidak mengembalikan PIL.Image"
+                "plot_rob_* tidak mengembalikan PIL.Image"
             )
 
-        # ⚠️ JANGAN MEMAKSA FILE ADA (Streamlit Cloud bisa read-only)
+        # ⚠️ Jangan paksa file ada (Streamlit Cloud bisa read-only)
         file_path = str(save_path) if save_path.exists() else None
 
         return {
@@ -93,7 +111,7 @@ def generate_infografis_rob(
             "file_path": file_path,
             "file_name": file_name,
             "kategori": kategori,
-            "image": final_img  # ✅ sumber utama
+            "image": final_img
         }
 
     except Exception as e:
