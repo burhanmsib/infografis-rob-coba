@@ -43,12 +43,18 @@ def create_legend_panel(wilayah_list, width, height, font_path):
     panel = Image.new("RGBA", (width, height), (0, 40, 112, 255))
     draw = ImageDraw.Draw(panel)
 
-    title_font = ImageFont.truetype(font_path, 50)
-    item_font = ImageFont.truetype(font_path, 42)
+    title_font = ImageFont.truetype(font_path, 48)
+    item_font = ImageFont.truetype(font_path, 38)
+
+    # Garis putus-putus atas
+    x = 0
+    while x < width:
+        draw.line([(x, 5), (x + 20, 5)], fill="white", width=3)
+        x += 35
 
     # Judul
     draw.text(
-        (40, 40),
+        (40, 50),
         "Wilayah Terdampak Rob (Warna Merah):",
         fill="white",
         font=title_font
@@ -57,14 +63,14 @@ def create_legend_panel(wilayah_list, width, height, font_path):
     draw.line(
         [(40, 115), (width - 40, 115)],
         fill="white",
-        width=3
+        width=2
     )
 
-    # Layout kolom (mirip senior)
+    # Multi kolom
     n = len(wilayah_list)
-    num_cols = 4 if n > 45 else 3 if n > 25 else 2
+    num_cols = 4 if n > 60 else 3 if n > 30 else 2
     col_width = (width - 80) // num_cols
-    row_height = 52
+    row_height = 44
 
     for i, wilayah in enumerate(wilayah_list):
         col = i % num_cols
@@ -140,7 +146,7 @@ def plot_rob_affected_areas(
     # ========================================================
     # DRAW MAP (UKURAN DIPERBESAR – FIX)
     # ========================================================
-    fig = plt.figure(figsize=(22, 12), facecolor="none")
+    fig = plt.figure(figsize=(24, 12), facecolor="none")
     ax = plt.axes(projection=ccrs.PlateCarree())
     ax.set_facecolor("none")
 
@@ -161,55 +167,66 @@ def plot_rob_affected_areas(
         zorder=3
     )
 
-    bounds = batas.total_bounds
-    ax.set_extent([bounds[0], 143, bounds[1], 17], crs=ccrs.PlateCarree())
+    # EXTENT DIKUNCI (INI KUNCI UTAMA)
+    ax.set_extent([94, 142, -12, 8], crs=ccrs.PlateCarree())
     ax.axis("off")
 
-    # ========================================================
+       # ========================================================
     # EXPORT MAP → IMAGE
     # ========================================================
     buf = io.BytesIO()
-    plt.savefig(buf, dpi=180, bbox_inches="tight", transparent=True)
+    plt.savefig(buf, dpi=150, bbox_inches="tight", transparent=True)
     plt.close(fig)
     buf.seek(0)
 
     map_img = Image.open(buf).convert("RGBA")
 
-    # 🔥 MAP DIBESARKAN (INI KUNCI TERAKHIR)
-    scale = (bg_w * 0.95) / map_img.width
-    new_size = (int(map_img.width * scale), int(map_img.height * scale))
+    # ========================================================
+    # PERBESAR MAP AGAR MIRIP SENIOR (KUNCI UTAMA)
+    # ========================================================
+
+    target_width = int(bg_w * 0.92)  # 92% lebar background
+    scale = target_width / map_img.width
+    new_size = (
+        int(map_img.width * scale),
+        int(map_img.height * scale)
+    )
+
     map_img = map_img.resize(new_size, Image.Resampling.LANCZOS)
 
+    # ========================================================
+    # PASTE MAP (POSISI TETAP SEPERTI SENIOR)
+    # ========================================================
     overlay = Image.new("RGBA", (bg_w, bg_h), (0, 0, 0, 0))
     overlay.paste(
         map_img,
-        ((bg_w - new_size[0]) // 2, 240),
+        ((bg_w - map_img.width) // 2, 280),
         map_img
     )
 
     map_with_bg = Image.alpha_composite(bg_img, overlay)
 
+   # ========================================================
+    # TANGGAL
     # ========================================================
-    # TANGGAL REKAP
-    # ========================================================
-    font_path = font_manager.findfont(
-        font_manager.FontProperties(family="DejaVu Sans")
-    )
-
     if tanggal_rekap:
         draw = ImageDraw.Draw(map_with_bg)
+        font_path = font_manager.findfont(
+            font_manager.FontProperties(family="DejaVu Sans")
+        )
         font = ImageFont.truetype(font_path, 72)
+
         draw.text(
-            (bg_w - 900, 260),
+            (bg_w - 900, 300),
             tanggal_rekap,
             fill="white",
             font=font
         )
 
     # ========================================================
-    # LEGEND PANEL (BAWAH)
+    # LEGEND PANEL BAWAH
     # ========================================================
-    legend_height = 1500
+    legend_height = 1400
     legend_panel = create_legend_panel(
         ordered_names,
         bg_w,
@@ -226,12 +243,10 @@ def plot_rob_affected_areas(
     final_img.paste(map_with_bg, (0, 0))
     final_img.paste(legend_panel, (0, bg_h))
 
-    # ========================================================
-    # SAVE OPTIONAL
-    # ========================================================
     if save_path:
         final_img.save(save_path, dpi=(300, 300))
 
     return final_img
+
 
 
