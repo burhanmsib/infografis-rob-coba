@@ -28,43 +28,28 @@ st.markdown(
     """
     <style>
     /* ===============================
-       HIDE STREAMLIT DEFAULT UI
+       HIDE FOOTER ONLY
        =============================== */
 
-    /* Hide footer (Made with Streamlit) */
+    /* Footer "Made with Streamlit" */
     footer {
         display: none !important;
     }
 
-    /* Hide MainMenu (⋮ menu) */
-    #MainMenu {
-        display: none !important;
-    }
-
-    /* Hide Streamlit toolbar (Share, Deploy, etc) */
-    header {
-        visibility: hidden;
-        height: 0px;
-    }
-
-    /* Hide bottom-right avatar / badge */
+    /* Bottom-right avatar / badge */
     div[data-testid="stDecoration"] {
         display: none !important;
     }
 
-    /* Extra safety: hide any remaining Streamlit branding */
     div[data-testid="stStatusWidget"] {
         display: none !important;
-    }
-
-    /* Remove padding caused by hidden header */
-    .block-container {
-        padding-top: 1rem;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
+
+st.markdown("&nbsp;", unsafe_allow_html=True)
 
 st.markdown(
     "<h1 style='text-align:center;'>PETA INTERAKTIF BANJIR ROB BMKG</h1>",
