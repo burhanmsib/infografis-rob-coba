@@ -85,15 +85,18 @@ def create_legend_panel(wilayah_list, width, height, font_path):
 # MAIN FUNCTION – REKAP BULANAN
 # ============================================================
 
-def plot_rob_bulanan(
+def plot_rob_affected_areas(
     affected_areas_list,
     tanggal_rekap=None,
-    save_path=None
+    save_path=None,
+    rekap_bul=True
 ):
     """
-    Generate infografis rekap bulanan banjir rob.
-    OUTPUT: PIL.Image (siap st.image)
+    OUTPUT: PIL.Image (SIAP st.image)
     """
+
+    if not affected_areas_list:
+        raise ValueError("affected_areas_list kosong")
 
     # ========================================================
     # PROTEKSI STREAMLIT CLOUD
@@ -230,3 +233,4 @@ def plot_rob_bulanan(
         final_img.save(save_path, dpi=(300, 300))
 
     return final_img
+
