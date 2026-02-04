@@ -27,22 +27,39 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Hide Streamlit Cloud footer */
-    footer {visibility: hidden;}
-    
-    /* Hide Streamlit Cloud menu */
-    #MainMenu {visibility: hidden;}
-    
-    /* Hide Streamlit Cloud deploy/share button */
-    div[data-testid="stToolbar"] {
-        visibility: hidden;
-        height: 0%;
-        position: fixed;
+    /* ===============================
+       HIDE STREAMLIT DEFAULT UI
+       =============================== */
+
+    /* Hide footer (Made with Streamlit) */
+    footer {
+        display: none !important;
     }
 
-    /* Hide Streamlit Cloud bottom-right avatar */
+    /* Hide MainMenu (⋮ menu) */
+    #MainMenu {
+        display: none !important;
+    }
+
+    /* Hide Streamlit toolbar (Share, Deploy, etc) */
+    header {
+        visibility: hidden;
+        height: 0px;
+    }
+
+    /* Hide bottom-right avatar / badge */
     div[data-testid="stDecoration"] {
-        display: none;
+        display: none !important;
+    }
+
+    /* Extra safety: hide any remaining Streamlit branding */
+    div[data-testid="stStatusWidget"] {
+        display: none !important;
+    }
+
+    /* Remove padding caused by hidden header */
+    .block-container {
+        padding-top: 1rem;
     }
     </style>
     """,
