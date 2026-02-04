@@ -361,41 +361,58 @@ elif menu == "Kelola Data":
 # ======================================================
 elif menu == "Infografis Rob":
 
-    st.subheader("🖼️ Infografis Sebaran Wilayah Terdampak Rob")
+    st.subheader("🖼️ Infografis Wilayah Terdampak Banjir Rob")
 
     tgl_awal = st.date_input("Tanggal Awal")
     tgl_akhir = st.date_input("Tanggal Akhir")
 
     mode = st.radio(
-        "Jenis",
+        "Jenis Infografis",
         ["Harian", "Rekap Bulanan"],
         horizontal=True
     )
 
     teks = st.text_input(
-        "Teks Periode",
+        "Teks Periode (judul pada gambar)",
         datetime.now().strftime("%d %B %Y")
     )
 
-    if st.button("📊 Generate"):
+    if st.button("📊 Generate Infografis"):
 
         data = crud.fetch_filtered_data(
             start_date=to_db_date_str(tgl_awal),
             end_date=to_db_date_str(tgl_akhir)
         )
 
+        if not data:
+            st.warning("⚠️ Tidak ada data pada periode tersebut")
+            st.stop()
+
         df = pd.DataFrame(data)
-        kec = df["Kecamatan"].dropna().unique().tolist()
+
+        # ✅ UPDATED: kirim list kecamatan saja (service yang urus segalanya)
+        kecamatan_list = (
+            df["Kecamatan"]
+            .dropna()
+            .astype(str)
+            .unique()
+            .tolist()
+        )
 
         hasil = generate_infografis_rob(
-            kecamatan_list=kec,
+            affected_areas=kecamatan_list,              # ✅ PARAMETER RESMI
             tanggal=teks,
-            rekap_bul=(mode == "Rekap Bulanan")
+            rekap_bul=(mode == "Rekap Bulanan")          # ✅ SWITCH ENGINE
         )
 
         if hasil["success"]:
             img = hasil["image"]
-            st.image(img)
+
+            st.image(
+                img,
+                caption=f"Infografis Rob ({hasil['kategori'].upper()})",
+                use_column_width=True
+            )
 
             buf = io.BytesIO()
             img.save(buf, format="PNG")
