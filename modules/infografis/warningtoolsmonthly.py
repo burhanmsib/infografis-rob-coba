@@ -1,5 +1,5 @@
 # ============================================================
-# WARNING TOOLS – REKAP BULANAN (FINAL / STREAMLIT SAFE)
+# WARNING TOOLS – REKAP BULANAN (FINAL FIX)
 # ============================================================
 
 from pathlib import Path
@@ -18,7 +18,6 @@ warnings.filterwarnings("ignore")
 # ENV DETECTION
 # ============================================================
 
-# Streamlit Cloud SELALU tidak punya Cartopy
 IS_STREAMLIT_CLOUD = os.getenv("STREAMLIT_CLOUD") == "1"
 
 if not IS_STREAMLIT_CLOUD:
@@ -27,7 +26,7 @@ else:
     ccrs = None
 
 # ============================================================
-# PATH CONFIG (WAJIB SESUAI REPO)
+# PATH CONFIG
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -36,7 +35,7 @@ GDB_KECAMATAN = BASE_DIR / "data" / "spatial" / "batas_kecamatan.gdb"
 BG_BULANAN = BASE_DIR / "assets" / "background" / "bg_img_rekapbul.png"
 
 # ============================================================
-# LEGEND PANEL (DI BAWAH PETA)
+# LEGEND PANEL
 # ============================================================
 
 def create_legend_panel(wilayah_list, width, height, font_path):
@@ -46,7 +45,6 @@ def create_legend_panel(wilayah_list, width, height, font_path):
     title_font = ImageFont.truetype(font_path, 48)
     item_font = ImageFont.truetype(font_path, 38)
 
-    # garis putus-putus atas
     x = 0
     while x < width:
         draw.line([(x, 6), (x + 22, 6)], fill="white", width=3)
@@ -79,23 +77,33 @@ def create_legend_panel(wilayah_list, width, height, font_path):
     return panel
 
 # ============================================================
-# MAIN FUNCTION (NAMA WAJIB SAMA DENGAN service.py)
+# MAIN FUNCTION (KOMPATIBEL DENGAN service.py)
 # ============================================================
 
 def plot_rob_affected_areas(
     affected_areas=None,
     tanggal_rekap=None,
     save_path=None,
-    **_
+    **kwargs
 ):
     """
     WAJIB:
+    - Cocok dengan service.py
     - Tidak crash Streamlit Cloud
     - Return PIL.Image
     """
 
     # ========================================================
-    # STREAMLIT CLOUD MODE (STOP DI SINI – PENTING)
+    # BACKWARD COMPATIBILITY (INI KUNCINYA 🔑)
+    # ========================================================
+    if not affected_areas:
+        affected_areas = (
+            kwargs.get("kecamatan_list")
+            or kwargs.get("affected_areas_list")
+        )
+
+    # ========================================================
+    # STREAMLIT CLOUD MODE (AMAN)
     # ========================================================
     if IS_STREAMLIT_CLOUD:
         img = Image.new("RGBA", (900, 420), (240, 240, 240, 255))
@@ -107,19 +115,18 @@ def plot_rob_affected_areas(
         font = ImageFont.truetype(font_path, 26)
 
         draw.text(
-            (40, 170),
+            (40, 160),
             "Infografis rekap bulanan\n"
-            "hanya tersedia di server internal\n"
-            "(membutuhkan Cartopy).",
+            "tersedia di server internal\n"
+            "(Cartopy tidak tersedia di Streamlit Cloud).",
             fill="black",
             font=font
         )
-        return img   # ⬅️ WAJIB RETURN, JANGAN LANJUT
+        return img
 
     # ========================================================
-    # SERVER INTERNAL MODE (FULL)
+    # VALIDASI (SERVER INTERNAL)
     # ========================================================
-
     if not affected_areas:
         raise ValueError("affected_areas kosong")
 
@@ -129,13 +136,15 @@ def plot_rob_affected_areas(
     if not BG_BULANAN.exists():
         raise FileNotFoundError(f"Background tidak ditemukan: {BG_BULANAN}")
 
+    # ========================================================
+    # LOAD DATA
+    # ========================================================
     batas = gpd.read_file(GDB_KECAMATAN)
     wilayah = batas[batas["NAMOBJ"].isin(affected_areas)]
 
     if wilayah.empty:
         raise ValueError("Nama kecamatan tidak ditemukan di geodatabase")
 
-    # urutan legend mengikuti geodatabase (WAJIB)
     ordered_names = [
         row["NAMOBJ"]
         for _, row in batas.iterrows()
@@ -143,34 +152,19 @@ def plot_rob_affected_areas(
     ]
 
     # ========================================================
-    # LOAD BACKGROUND
+    # BACKGROUND
     # ========================================================
     bg_img = Image.open(BG_BULANAN).convert("RGBA")
     bg_w, bg_h = bg_img.size
 
     # ========================================================
-    # DRAW MAP (UKURAN BESAR – MIRIP SENIOR)
+    # DRAW MAP (BESAR & FIX)
     # ========================================================
     fig = plt.figure(figsize=(24, 12), facecolor="none")
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.set_facecolor("none")
 
-    batas.plot(
-        ax=ax,
-        facecolor="#E6E6E6",
-        edgecolor="white",
-        linewidth=0.4,
-        zorder=1
-    )
-
-    wilayah.plot(
-        ax=ax,
-        facecolor="red",
-        edgecolor="darkred",
-        linewidth=0.8,
-        alpha=0.95,
-        zorder=3
-    )
+    batas.plot(ax=ax, facecolor="#E6E6E6", edgecolor="white", linewidth=0.4)
+    wilayah.plot(ax=ax, facecolor="red", edgecolor="darkred", linewidth=0.8)
 
     ax.set_extent([94, 142, -12, 8], crs=ccrs.PlateCarree())
     ax.axis("off")
@@ -183,7 +177,7 @@ def plot_rob_affected_areas(
     map_img = Image.open(buf).convert("RGBA")
 
     # ========================================================
-    # SCALE MAP (92% LEBAR BACKGROUND – KUNCI)
+    # SCALE MAP (MIRIP SENIOR)
     # ========================================================
     target_width = int(bg_w * 0.92)
     scale = target_width / map_img.width
@@ -211,15 +205,10 @@ def plot_rob_affected_areas(
     if tanggal_rekap:
         draw = ImageDraw.Draw(map_with_bg)
         font = ImageFont.truetype(font_path, 72)
-        draw.text(
-            (bg_w - 900, 300),
-            tanggal_rekap,
-            fill="white",
-            font=font
-        )
+        draw.text((bg_w - 900, 300), tanggal_rekap, fill="white", font=font)
 
     # ========================================================
-    # LEGEND PANEL BAWAH
+    # LEGEND
     # ========================================================
     legend_height = 1400
     legend_panel = create_legend_panel(
@@ -230,11 +219,8 @@ def plot_rob_affected_areas(
     )
 
     final_img = Image.new(
-        "RGBA",
-        (bg_w, bg_h + legend_height),
-        (0, 0, 0, 0)
+        "RGBA", (bg_w, bg_h + legend_height), (0, 0, 0, 0)
     )
-
     final_img.paste(map_with_bg, (0, 0))
     final_img.paste(legend_panel, (0, bg_h))
 
