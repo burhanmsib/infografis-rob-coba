@@ -25,6 +25,31 @@ st.set_page_config(
 )
 
 st.markdown(
+    """
+    <style>
+    /* Hide Streamlit Cloud footer */
+    footer {visibility: hidden;}
+    
+    /* Hide Streamlit Cloud menu */
+    #MainMenu {visibility: hidden;}
+    
+    /* Hide Streamlit Cloud deploy/share button */
+    div[data-testid="stToolbar"] {
+        visibility: hidden;
+        height: 0%;
+        position: fixed;
+    }
+
+    /* Hide Streamlit Cloud bottom-right avatar */
+    div[data-testid="stDecoration"] {
+        display: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown(
     "<h1 style='text-align:center;'>PETA INTERAKTIF BANJIR ROB BMKG</h1>",
     unsafe_allow_html=True
 )
