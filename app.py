@@ -24,26 +24,32 @@ st.set_page_config(
     layout="wide"
 )
 
-st.markdown(
-    """
-    <style>
-    /* ===============================
-       HIDE GITHUB / FORK BADGE
-       =============================== */
+import streamlit as st
 
-    /* GitHub fork badge (top-right) */
-    a[href*="github.com"] {
-        display: none !important;
-    }
+st.markdown("""
+<style>
+/* HILANGKAN HEADER ATAS (Fork, GitHub, dll) */
+header {visibility: hidden; height: 0px;}
 
-    /* Streamlit cloud deploy button */
-    div[data-testid="stToolbar"] a {
-        display: none !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+/* HILANGKAN FOOTER STREAMLIT */
+footer {visibility: hidden;}
+
+/* HILANGKAN MENU TITIK TIGA */
+#MainMenu {visibility: hidden;}
+
+/* HILANGKAN ICON FORK + GITHUB (STREAMLIT CLOUD) */
+div[data-testid="stToolbar"] {
+    visibility: hidden;
+    height: 0%;
+    position: fixed;
+}
+
+/* HILANGKAN AVATAR PROFILE */
+div[data-testid="stDecoration"] {
+    visibility: hidden;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.write("")  # paksa render ulang
 
