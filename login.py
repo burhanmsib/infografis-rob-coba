@@ -6,7 +6,7 @@ if "users" in st.secrets:
     USERS = st.secrets["users"]
 else:
     USERS = {
-        "fod": {"password": "fod123", "role": "fod"},
+        # "fod": {"password": "fod123", "role": "fod"},
         "user": {"password": "user123", "role": "pengguna"},
     }
 
